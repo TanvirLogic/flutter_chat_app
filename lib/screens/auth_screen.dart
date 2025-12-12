@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chat_app/screens/widgets/user_image_picker.dart';
 
 final _firebase = FirebaseAuth.instance;
 
@@ -16,6 +17,7 @@ class _AuthScreenState extends State<AuthScreen> {
   var _isLogin = true;
   var _enteredEmail = '';
   var _enteredPass = '';
+  bool _inProgress = false;
 
   @override
   Widget build(BuildContext context) {
@@ -46,6 +48,8 @@ class _AuthScreenState extends State<AuthScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          if (!_isLogin) UserImagePicker(),
+
                           TextFormField(
                             keyboardType: .emailAddress,
                             autocorrect: false,
@@ -78,14 +82,18 @@ class _AuthScreenState extends State<AuthScreen> {
                             },
                           ),
                           SizedBox(height: 12),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Theme.of(
-                                context,
-                              ).colorScheme.primaryContainer,
+                          Visibility(
+                            visible: _inProgress == false,
+                            replacement: CircularProgressIndicator(),
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.primaryContainer,
+                              ),
+                              onPressed: _submit,
+                              child: Text(_isLogin ? 'Login' : 'Sign Up'),
                             ),
-                            onPressed: _submit,
-                            child: Text(_isLogin ? 'Login' : 'Sign Up'),
                           ),
                           TextButton(
                             onPressed: () {
@@ -111,23 +119,32 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  _submit() async {
-    final isValid = _formKey.currentState!.validate();
+  void _submit() async {
+    if (_formKey.currentState!.validate()) {
+      _inProgress = true;
+      setState(() {});
+      final isValid = _formKey.currentState!.validate();
 
-    if (!isValid) {
-      return;
-    } else {
-      _formKey.currentState!.save();
-    }
-    if (_isLogin) {
-      // log users in
-    } else {
+      if (!isValid) {
+        return;
+      } else {
+        _formKey.currentState!.save();
+      }
       try {
-        final userCredentials = await _firebase.createUserWithEmailAndPassword(
-          email: _enteredEmail,
-          password: _enteredPass,
-        );
-        print(userCredentials);
+        if (_isLogin) {
+          // log users in
+          final userCredentials = await _firebase.signInWithEmailAndPassword(
+            email: _enteredEmail,
+            password: _enteredPass,
+          );
+        } else {
+          final userCredentials = await _firebase
+              .createUserWithEmailAndPassword(
+                email: _enteredEmail,
+                password: _enteredPass,
+              );
+          // print(userCredentials);
+        }
       } on FirebaseAuthException catch (e) {
         if (e.code == 'email-already-in-user') {
           // Show error message
@@ -137,6 +154,11 @@ class _AuthScreenState extends State<AuthScreen> {
           SnackBar(content: Text(e.message ?? 'Authentication failed')),
         );
       }
+      _inProgress = false;
+      setState(() {});
+    }
+    else{
+      return;
     }
   }
 }
